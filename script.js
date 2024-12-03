@@ -31,7 +31,10 @@ function authenticateUser() {
 // Función de login
 function login() {
     currentUser = authenticateUser();
-    if (currentUser) updateUI();
+    if (currentUser) {
+        loadInventory();
+        updateUI();
+    }
 }
 
 // Función de logout
@@ -44,21 +47,18 @@ function logout() {
 // Actualiza la interfaz según el rol
 function updateUI() {
     const addButton = document.getElementById("add-product-button");
-    const deleteButtons = document.querySelectorAll(".delete-button");
     const logButton = document.getElementById("download-logs-button");
 
+    // Mostrar/ocultar botones según el rol
     if (currentUser?.role === "admin") {
         addButton.style.display = "block";
         logButton.style.display = "block";
-        deleteButtons.forEach(btn => (btn.style.display = "block"));
     } else if (currentUser?.role === "user") {
         addButton.style.display = "none";
         logButton.style.display = "none";
-        deleteButtons.forEach(btn => (btn.style.display = "none"));
     } else {
         addButton.style.display = "none";
         logButton.style.display = "none";
-        deleteButtons.forEach(btn => (btn.style.display = "none"));
     }
 }
 
@@ -73,11 +73,14 @@ function loadInventory() {
             <td>${product.characteristics}</td>
             <td>
                 <button onclick="editProduct(${index})">Editar</button>
-                <button class="delete-button" onclick="removeProduct(${index})">Eliminar</button>
+                ${
+                    currentUser?.role === "admin"
+                        ? `<button class="delete-button" onclick="removeProduct(${index})">Eliminar</button>`
+                        : ""
+                }
             </td>
         </tr>
     `).join("");
-    updateUI();
 }
 
 // Guarda el inventario y lo recarga
