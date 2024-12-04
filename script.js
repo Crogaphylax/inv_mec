@@ -44,23 +44,42 @@ function logout() {
     updateUI();
 }
 
-// Actualiza la interfaz según el rol
+// Actualiza la interfaz según el rol y el estado del formulario
 function updateUI() {
     const addButton = document.getElementById("add-product-button");
+    const deleteButtons = document.querySelectorAll(".delete-button");
     const logButton = document.getElementById("download-logs-button");
+    const saveButton = document.querySelector("#product-form button[type='submit']");
 
-    // Mostrar/ocultar botones según el rol
-    if (currentUser?.role === "admin") {
-        addButton.style.display = "block";
-        logButton.style.display = "block";
-    } else if (currentUser?.role === "user") {
+    // Si no hay usuario autenticado
+    if (!currentUser) {
         addButton.style.display = "none";
         logButton.style.display = "none";
-    } else {
-        addButton.style.display = "none";
-        logButton.style.display = "none";
+        deleteButtons.forEach(btn => (btn.style.display = "none"));
+        saveButton.style.display = "none";
+        return;
+    }
+
+    // Actualizar según el rol del usuario
+    if (currentUser.role === "admin") {
+        addButton.style.display = "block"; // Administradores pueden añadir productos
+        logButton.style.display = "block"; // Administradores pueden descargar logs
+        deleteButtons.forEach(btn => (btn.style.display = "block")); // Administradores pueden eliminar productos
+        saveButton.style.display = "block"; // Administradores pueden guardar productos
+    } else if (currentUser.role === "user") {
+        addButton.style.display = "none"; // Usuarios regulares no pueden añadir productos
+        logButton.style.display = "none"; // Usuarios regulares no pueden descargar logs
+        deleteButtons.forEach(btn => (btn.style.display = "none")); // Usuarios regulares no pueden eliminar productos
+
+        // Mostrar el botón Guardar solo si se está editando un producto
+        if (editIndexInput.value !== "") {
+            saveButton.style.display = "block"; // Usuarios pueden guardar ediciones
+        } else {
+            saveButton.style.display = "none"; // Ocultar si no hay edición activa
+        }
     }
 }
+
 
 // Carga y muestra el inventario
 function loadInventory() {
@@ -133,7 +152,7 @@ productForm.addEventListener("submit", (event) => {
     characteristicsInput.value = "";
 });
 
-// Edita un producto (Admin o Usuario Regular)
+// Edita un producto (Disponible para todos los usuarios)
 function editProduct(index) {
     if (!currentUser) {
         alert("Por favor, inicia sesión para realizar esta acción.");
@@ -142,11 +161,63 @@ function editProduct(index) {
 
     const inventory = JSON.parse(localStorage.getItem("inventory"));
     const product = inventory[index];
+
     nameInput.value = product.name;
     quantityInput.value = product.quantity;
     characteristicsInput.value = product.characteristics;
-    editIndexInput.value = index;
+    editIndexInput.value = index; // Marcar el índice del producto en edición
+
+    alert(`Editando producto: ${product.name}`);
+    updateUI(); // Actualizar la UI para mostrar el botón "Guardar"
 }
+
+
+// Función para añadir o editar productos (ajustado para roles)
+productForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    if (!currentUser) {
+        alert("Por favor, inicia sesión para realizar esta acción.");
+        return;
+    }
+
+    const name = nameInput.value.trim();
+    const quantity = parseInt(quantityInput.value.trim(), 10);
+    const characteristics = characteristicsInput.value.trim();
+    const editIndex = editIndexInput.value;
+
+    if (!name) {
+        alert("El nombre no puede estar vacío.");
+        return;
+    }
+    if (isNaN(quantity) || quantity <= 0) {
+        alert("La cantidad debe ser un número positivo.");
+        return;
+    }
+
+    const inventory = JSON.parse(localStorage.getItem("inventory")) || [];
+
+    if (editIndex !== "") {
+        // Editar un producto existente (todos los usuarios pueden hacerlo)
+        logs.push(`[${getTimestamp()}] ${currentUser.username} actualizó un producto: ${name}`);
+        inventory[editIndex] = { name, quantity, characteristics };
+        editIndexInput.value = ""; // Limpiar el índice después de guardar
+    } else if (currentUser.role === "admin") {
+        // Agregar un nuevo producto (solo admins)
+        logs.push(`[${getTimestamp()}] ${currentUser.username} añadió un producto: ${name}`);
+        inventory.push({ name, quantity, characteristics });
+    } else {
+        alert("Solo los administradores pueden añadir productos.");
+        return;
+    }
+
+    saveInventory(inventory);
+
+    // Limpiar formulario
+    nameInput.value = "";
+    quantityInput.value = "";
+    characteristicsInput.value = "";
+});
 
 // Elimina un producto (Solo Admin)
 function removeProduct(index) {
